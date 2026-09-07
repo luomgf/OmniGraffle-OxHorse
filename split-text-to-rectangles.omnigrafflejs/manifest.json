@@ -3,7 +3,7 @@
   "identifier": "com.lmg.omnigraffle.split-text-to-rectangles",
   "author": "LMG",
   "description": "打开 OxHorse 浮动面板，按换行切分文本，并把 Markdown / Mermaid 画到画布。",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "actions": [
     {
       "identifier": "splitTextToRectangles",

@@ -1,0 +1,6 @@
+"label" = "Original Split";
+"shortLabel" = "Original";
+"mediumLabel" = "Original Split";
+"longLabel" = "Keep original graphic style and split by line breaks";
+"paletteLabel" = "Original";
+"description" = "Keep the original graphic appearance and split by line breaks.";

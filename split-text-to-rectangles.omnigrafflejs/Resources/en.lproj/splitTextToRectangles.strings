@@ -1,0 +1,6 @@
+"label" = "OxHorse";
+"shortLabel" = "OxHorse";
+"mediumLabel" = "OxHorse";
+"longLabel" = "Open the persistent split palette";
+"paletteLabel" = "OxHorse";
+"description" = "Open a floating HTML window for rectangle split and original split. The window stays until you close it.";

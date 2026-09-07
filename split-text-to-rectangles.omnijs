@@ -1,0 +1,495 @@
+/*{
+  "type": "action",
+  "targets": ["omnigraffle"],
+  "author": "LMG",
+  "identifier": "com.lmg.omnigraffle.split-text-to-rectangles.launcher",
+  "version": "0.1.0",
+  "description": "打开常驻 HTML 浮动窗口，按换行切分文本。支持矩形分裂和原图分裂。",
+  "label": "OxHorse",
+  "shortLabel": "OxHorse",
+  "mediumLabel": "OxHorse",
+  "longLabel": "打开常驻切分浮动窗口",
+  "paletteLabel": "OxHorse",
+  "image": "rectangle.split.1x2"
+}*/
+(() => {
+    const DEFAULT_GAP = 8;
+    const MIN_EXTRA = 8;
+    const MODE_RECTANGLE = "rectangle";
+    const MODE_ORIGINAL = "original";
+
+    function splitLines(text) {
+        if (text === null || text === undefined) {
+            return [];
+        }
+        const normalized = String(text)
+            .replace(/\r\n/g, "\n")
+            .replace(/\r/g, "\n")
+            .replace(/\u2028/g, "\n")
+            .replace(/\u2029/g, "\n");
+        const parts = normalized.split("\n");
+        const lines = [];
+        for (let i = 0; i < parts.length; i++) {
+            const line = parts[i].replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+            if (line.length > 0) {
+                lines.push(line);
+            }
+        }
+        return lines;
+    }
+
+    function rectX(rect) {
+        if (typeof rect.x === "number") {
+            return rect.x;
+        }
+        return rect.minX;
+    }
+
+    function rectY(rect) {
+        if (typeof rect.y === "number") {
+            return rect.y;
+        }
+        return rect.minY;
+    }
+
+    function rectW(rect) {
+        if (typeof rect.width === "number") {
+            return rect.width;
+        }
+        return rect.size.width;
+    }
+
+    function rectH(rect) {
+        if (typeof rect.height === "number") {
+            return rect.height;
+        }
+        return rect.size.height;
+    }
+
+    function isLocked(solid) {
+        if (solid.locked) {
+            return true;
+        }
+        if (solid.layer && solid.layer.locked) {
+            return true;
+        }
+        return false;
+    }
+
+    function isSplittableSolid(solid) {
+        if (!solid || typeof solid.text !== "string") {
+            return false;
+        }
+        if (isLocked(solid)) {
+            return false;
+        }
+        return splitLines(solid.text).length >= 2;
+    }
+
+    function hasSplittableSolids(selection) {
+        if (!selection || !selection.solids) {
+            return false;
+        }
+        for (let i = 0; i < selection.solids.length; i++) {
+            if (isSplittableSolid(selection.solids[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function minBoxHeight(solid) {
+        const textSize = solid.textSize || 12;
+        let pad = 8;
+        if (typeof solid.textVerticalPadding === "number" && solid.textVerticalPadding > 0) {
+            pad = solid.textVerticalPadding * 2;
+        }
+        return Math.max(24, textSize * 1.6 + pad + MIN_EXTRA);
+    }
+
+    function applyFrame(graphic, x, y, width, height) {
+        graphic.geometry = new Rect(x, y, width, height);
+    }
+
+    function looksLikeBareText(solid) {
+        const noStroke = !solid.strokeColor || !solid.strokeThickness;
+        const noFill = !solid.fillColor;
+        return noStroke && noFill;
+    }
+
+    function promoteToRectangle(graphic) {
+        try {
+            graphic.shape = "Rectangle";
+        } catch (e) {
+            // Ignore.
+        }
+        try {
+            if (!graphic.strokeColor || !graphic.strokeThickness) {
+                graphic.strokeType = StrokeType.Single;
+                graphic.strokeThickness = 1;
+                graphic.strokeColor = graphic.textColor || Color.black;
+            }
+        } catch (e) {
+            // Ignore.
+        }
+        try {
+            if (!graphic.fillColor) {
+                graphic.fillType = FillType.Solid;
+                graphic.fillColor = Color.white;
+            }
+        } catch (e) {
+            // Ignore.
+        }
+        try {
+            graphic.textHorizontalAlignment = HorizontalTextAlignment.Center;
+        } catch (e) {
+            // Ignore.
+        }
+    }
+
+    function applyOriginalLineText(graphic, line, x, y, width, height) {
+        graphic.text = line;
+        try {
+            graphic.name = line;
+        } catch (e) {
+            // Ignore.
+        }
+        applyFrame(graphic, x, y, width, height);
+        graphic.text = line;
+        return height;
+    }
+
+    function applyRectangleLineText(graphic, line, x, y, width, minHeight) {
+        promoteToRectangle(graphic);
+
+        try {
+            graphic.textWraps = false;
+        } catch (e) {
+            // Ignore.
+        }
+        try {
+            graphic.textFlow = TextFlow.Overflow;
+        } catch (e) {
+            // Ignore.
+        }
+        try {
+            graphic.textVerticalPlacement = VerticalTextPlacement.Middle;
+        } catch (e) {
+            // Ignore.
+        }
+        try {
+            if (!(graphic.textVerticalPadding > 0)) {
+                graphic.textVerticalPadding = 4;
+            }
+            if (!(graphic.textHorizontalPadding > 0)) {
+                graphic.textHorizontalPadding = 8;
+            }
+        } catch (e) {
+            // Ignore.
+        }
+
+        try {
+            graphic.autosizing = TextAutosizing.Clip;
+        } catch (e) {
+            // Ignore.
+        }
+        graphic.text = line;
+        try {
+            graphic.name = line;
+        } catch (e) {
+            // Ignore.
+        }
+
+        let height = minHeight;
+        try {
+            graphic.autosizing = TextAutosizing.Vertical;
+            graphic.text = line;
+            height = Math.max(minHeight, rectH(graphic.geometry));
+            if (graphic.textGeometry) {
+                const textHeight = rectH(graphic.textGeometry);
+                const pad = (graphic.textVerticalPadding || 0) * 2;
+                height = Math.max(height, textHeight + pad + 4);
+            }
+        } catch (e) {
+            // Keep minHeight.
+        }
+
+        try {
+            graphic.autosizing = TextAutosizing.Overflow;
+        } catch (e) {
+            // Ignore.
+        }
+        applyFrame(graphic, x, y, width, height);
+        graphic.text = line;
+        try {
+            graphic.textWraps = false;
+        } catch (e) {
+            // Ignore.
+        }
+        try {
+            graphic.textVerticalPlacement = VerticalTextPlacement.Middle;
+        } catch (e) {
+            // Ignore.
+        }
+        return height;
+    }
+
+    function applySplitLineText(graphic, line, x, y, width, heightOrMin, mode) {
+        if (mode === MODE_ORIGINAL) {
+            return applyOriginalLineText(graphic, line, x, y, width, heightOrMin);
+        }
+        return applyRectangleLineText(graphic, line, x, y, width, heightOrMin);
+    }
+
+    function copyKeyStyle(from, to) {
+        const keys = [
+            "shape",
+            "fillColor",
+            "fillType",
+            "gradientAngle",
+            "gradientColor",
+            "blendColor",
+            "blendFraction",
+            "tripleBlend",
+            "strokeColor",
+            "strokeThickness",
+            "strokeType",
+            "strokePattern",
+            "strokeCap",
+            "strokeJoin",
+            "cornerRadius",
+            "shadowColor",
+            "shadowFuzziness",
+            "shadowVector",
+            "fontName",
+            "textSize",
+            "textColor",
+            "textHorizontalAlignment",
+            "textVerticalPlacement",
+            "textHorizontalPadding",
+            "textVerticalPadding",
+            "textWraps",
+            "textFlow",
+            "autosizing",
+            "magnets",
+            "rotation",
+            "flippedHorizontally",
+            "flippedVertically",
+            "plasticCurve",
+            "plasticHighlightAngle",
+            "allowsConnections",
+            "alignsEdgesToGrid",
+            "textRotation",
+            "textRotationIsRelative"
+        ];
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            try {
+                to[key] = from[key];
+            } catch (e) {
+                // Some properties are not settable on every graphic type.
+            }
+        }
+    }
+
+    function duplicateSolid(solid, canvas, x, y) {
+        let copy = null;
+        try {
+            copy = solid.duplicateTo(new Point(x, y));
+        } catch (e) {
+            copy = null;
+        }
+        if (!copy && canvas) {
+            const geo = solid.geometry;
+            const width = rectW(geo);
+            const height = rectH(geo);
+            let shapeName = "Rectangle";
+            try {
+                if (solid.shape) {
+                    shapeName = solid.shape;
+                }
+            } catch (e) {
+                shapeName = "Rectangle";
+            }
+            copy = canvas.addShape(shapeName, new Rect(x, y, width, height));
+            copyKeyStyle(solid, copy);
+        }
+        if (copy && solid.layer) {
+            try {
+                copy.layer = solid.layer;
+            } catch (e) {
+                // Layer may be locked or not assignable.
+            }
+        }
+        if (copy) {
+            try {
+                copy.locked = false;
+            } catch (e) {
+                // Ignore.
+            }
+        }
+        return copy;
+    }
+
+    function splitSolid(solid, canvas, gap, mode) {
+        const lines = splitLines(solid.text);
+        if (lines.length < 2) {
+            return [];
+        }
+
+        const splitMode = mode === MODE_ORIGINAL ? MODE_ORIGINAL : MODE_RECTANGLE;
+        const geo = solid.geometry;
+        const x = rectX(geo);
+        const y = rectY(geo);
+        const width = rectW(geo);
+        const minHeight = minBoxHeight(solid);
+        const originalHeight = rectH(geo);
+        const lineHeight = splitMode === MODE_ORIGINAL
+            ? Math.max(minHeight, originalHeight / lines.length)
+            : minHeight;
+
+        const graphics = [solid];
+        for (let i = 1; i < lines.length; i++) {
+            const copy = duplicateSolid(solid, canvas, x, y);
+            if (copy) {
+                graphics.push(copy);
+            }
+        }
+
+        const count = Math.min(graphics.length, lines.length);
+        let yCursor = y;
+        for (let i = 0; i < count; i++) {
+            const graphic = graphics[i];
+            if (i > 0) {
+                try {
+                    graphic.notes = "";
+                } catch (e) {
+                    // Ignore.
+                }
+            }
+
+            const height = applySplitLineText(
+                graphic,
+                lines[i],
+                x,
+                yCursor,
+                width,
+                lineHeight,
+                splitMode
+            );
+
+            if (i > 0) {
+                try {
+                    graphic.orderBelow(graphics[i - 1]);
+                } catch (e) {
+                    // Ignore.
+                }
+            }
+            yCursor += height + gap;
+        }
+
+        return graphics;
+    }
+
+    function spacingForCanvas(canvas) {
+        try {
+            if (canvas && typeof canvas.spaceBetweenObjectsInColumn === "number") {
+                const spacing = canvas.spaceBetweenObjectsInColumn;
+                if (spacing > 0 && spacing < 80) {
+                    return spacing;
+                }
+            }
+        } catch (e) {
+            // Fall through to default.
+        }
+        return DEFAULT_GAP;
+    }
+
+    function splitSelectedSolids(selection, mode) {
+        const created = [];
+        let skipped = 0;
+        if (!selection || !selection.solids) {
+            return {created: created, skipped: skipped};
+        }
+
+        const gap = spacingForCanvas(selection.canvas);
+        const solids = [];
+        for (let i = 0; i < selection.solids.length; i++) {
+            solids.push(selection.solids[i]);
+        }
+        solids.sort(function (a, b) {
+            const ay = rectY(a.geometry);
+            const by = rectY(b.geometry);
+            if (ay === by) {
+                return rectX(a.geometry) - rectX(b.geometry);
+            }
+            return by - ay;
+        });
+
+        const canvas = selection.canvas;
+        for (let i = 0; i < solids.length; i++) {
+            const solid = solids[i];
+            if (!isSplittableSolid(solid)) {
+                skipped += 1;
+                continue;
+            }
+            const pieces = splitSolid(solid, canvas, gap, mode);
+            for (let j = 0; j < pieces.length; j++) {
+                created.push(pieces[j]);
+            }
+        }
+
+        if (created.length > 0 && selection.view) {
+            try {
+                selection.view.select(created, false);
+            } catch (e) {
+                // Ignore selection failures.
+            }
+        }
+
+        return {created: created, skipped: skipped};
+    }
+
+    const action = new PlugIn.Action(function (selection, sender) {
+        try {
+            const candidates = [];
+            try {
+                if (action.plugIn && action.plugIn.URL) {
+                    const dir = action.plugIn.URL.deletingLastPathComponent();
+                    candidates.push(dir.appendingPathComponent("split-text-to-rectangles.omnigrafflejs").appendingPathComponent("Resources").appendingPathComponent("OpenFloatingPalette.app"));
+                    candidates.push(dir.appendingPathComponent("OpenFloatingPalette.app"));
+                }
+            } catch (e) {
+                // Ignore.
+            }
+            try {
+                const bundled = PlugIn.find("com.lmg.omnigraffle.split-text-to-rectangles");
+                if (bundled && bundled.URL) {
+                    candidates.push(bundled.URL.appendingPathComponent("Resources").appendingPathComponent("OpenFloatingPalette.app"));
+                }
+            } catch (e) {
+                // Ignore.
+            }
+            for (let i = 0; i < candidates.length; i++) {
+                try {
+                    candidates[i].open();
+                    return;
+                } catch (e) {
+                    // Try next.
+                }
+            }
+            new Alert("OxHorse", "请安装 bundle 插件 split-text-to-rectangles.omnigrafflejs，以便打开常驻浮动窗口。").show();
+        } catch (err) {
+            const title = err && err.name ? err.name : "错误";
+            const message = err && err.message ? err.message : String(err);
+            new Alert(title, message).show();
+            console.error(err);
+        }
+    });
+
+    action.validate = function (selection, sender) {
+        return true;
+    };
+
+    return action;
+})();

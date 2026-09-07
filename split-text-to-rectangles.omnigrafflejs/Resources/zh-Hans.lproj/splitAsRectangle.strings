@@ -1,0 +1,6 @@
+"label" = "矩形分裂";
+"shortLabel" = "矩形分裂";
+"mediumLabel" = "矩形分裂";
+"longLabel" = "按换行切成独立矩形，文字居中";
+"paletteLabel" = "矩形分裂";
+"description" = "将选中图形按换行切成独立矩形，文字居中。";

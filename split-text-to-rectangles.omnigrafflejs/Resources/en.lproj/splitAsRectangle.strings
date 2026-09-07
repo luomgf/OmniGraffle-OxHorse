@@ -1,0 +1,6 @@
+"label" = "Rectangle Split";
+"shortLabel" = "Rect Split";
+"mediumLabel" = "Rectangle Split";
+"longLabel" = "Split into independent rectangles with centered text";
+"paletteLabel" = "Rect Split";
+"description" = "Split selected graphics into independent rectangles, one line each.";

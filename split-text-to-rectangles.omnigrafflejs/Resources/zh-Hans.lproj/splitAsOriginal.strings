@@ -1,0 +1,6 @@
+"label" = "原图分裂";
+"shortLabel" = "原图分裂";
+"mediumLabel" = "原图分裂";
+"longLabel" = "保持原图形样式，按换行拆开";
+"paletteLabel" = "原图分裂";
+"description" = "保持原图形外观，按换行拆成多个同样样式的图形。";

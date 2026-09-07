@@ -1,0 +1,6 @@
+"label" = "OxHorse";
+"shortLabel" = "OxHorse";
+"mediumLabel" = "OxHorse";
+"longLabel" = "打开常驻切分浮动窗口";
+"paletteLabel" = "OxHorse";
+"description" = "打开固定 HTML 浮动窗口，用矩形分裂或原图分裂。窗口保持打开，直到手动关闭。";

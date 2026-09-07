@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OxHorse</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --text: #1f2328;
+      --muted: #656d76;
+      --line: #d8dee4;
+      --accent: #0b57d0;
+      --accent-press: #0842a0;
+      --original: #1a7f37;
+      --original-press: #116329;
+      --danger: #b42318;
+      --shadow: 0 10px 28px rgba(16, 24, 40, 0.12);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      user-select: none;
+    }
+    .shell {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .body {
+      flex: 1;
+      padding: 18px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand img {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: var(--shadow);
+      flex: 0 0 auto;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.02em;
+    }
+    .hint {
+      color: var(--muted);
+      margin: 0;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .mode {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 14px 14px 13px;
+      text-align: left;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+    .mode:active { transform: translateY(1px); }
+    .mode.rectangle { background: var(--accent); }
+    .mode.rectangle:hover { background: var(--accent-press); }
+    .mode.original { background: var(--original); }
+    .mode.original:hover { background: var(--original-press); }
+    .mode strong {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    .mode span {
+      display: block;
+      opacity: 0.92;
+      font-size: 12px;
+    }
+    .status {
+      margin-top: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--muted);
+      min-height: 58px;
+    }
+    .status.ok { color: var(--original); }
+    .status.err { color: var(--danger); }
+    .foot {
+      color: var(--muted);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="body">
+      <div class="brand">
+        <img src="CowHorse.png" alt="OxHorse">
+        <h1>OxHorse</h1>
+      </div>
+      <p class="hint">在 OmniGraffle 中选中多行矩形或文本，再点下面的分裂方式。本窗口会一直留着，不会因为点按钮而关闭。</p>
+      <div class="actions">
+        <button class="mode rectangle" id="rectBtn">
+          <strong>矩形分裂</strong>
+          <span>每行生成独立矩形，文字居中</span>
+        </button>
+        <button class="mode original" id="origBtn">
+          <strong>原图分裂</strong>
+          <span>保持原图形样式，只按换行拆开</span>
+        </button>
+      </div>
+      <div class="status" id="status">就绪。请先选中包含至少两行文字的图形。</div>
+      <p class="foot">关闭、最小化、最大化请用窗口左上角按钮。只有手动关闭才会退出。</p>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var statusEl = document.getElementById("status");
+
+      function setStatus(text, kind) {
+        statusEl.textContent = text;
+        statusEl.className = "status" + (kind ? " " + kind : "");
+      }
+
+      function runSplit(mode) {
+        var label = mode === "original" ? "原图分裂" : "矩形分裂";
+        setStatus("正在执行「" + label + "」…");
+        document.title = "ogsplit:" + mode + ":" + Date.now();
+        setTimeout(function () {
+          setStatus("已调用插件动作「" + label + "」。窗口保持打开，可继续选中其他图形再分裂。", "ok");
+        }, 200);
+      }
+
+      document.getElementById("rectBtn").addEventListener("click", function (event) {
+        event.preventDefault();
+        runSplit("rectangle");
+      });
+      document.getElementById("origBtn").addEventListener("click", function (event) {
+        event.preventDefault();
+        runSplit("original");
+      });
+    })();
+  </script>
+</body>
+</html>

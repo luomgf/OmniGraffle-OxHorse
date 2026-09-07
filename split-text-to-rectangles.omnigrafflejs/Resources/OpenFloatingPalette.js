@@ -65,16 +65,19 @@ function invokeOmni(js) {
 }
 
 function invokeSplit(mode) {
-    const actionName = mode === "original" ? "splitAsOriginal" : "splitAsRectangle";
-    invokeOmni([
-        "(function(){",
-        "var plugin=PlugIn.find('com.lmg.omnigraffle.split-text-to-rectangles');",
-        "if(!plugin){new Alert('OxHorse','插件未安装').show();return;}",
-        "var act=plugin.action('" + actionName + "');",
-        "if(!act){new Alert('OxHorse','请安装插件包 split-text-to-rectangles.omnigrafflejs。').show();return;}",
-        "act.perform();",
+    const splitMode = mode === "original" ? "original" : "rectangle";
+    invokeOmni(
+        "(function(){" +
+        "var plugin=PlugIn.find('com.lmg.omnigraffle.split-text-to-rectangles');" +
+        "if(!plugin){new Alert('OxHorse','插件未安装').show();return;}" +
+        "var lib=plugin.library('SplitTextLib');" +
+        "if(!lib){new Alert('OxHorse','找不到 SplitTextLib').show();return;}" +
+        "var sel=document.windows && document.windows[0] ? document.windows[0].selection : null;" +
+        "if(!sel){new Alert('OxHorse','没有打开的文档。').show();return;}" +
+        "try{lib.runSplit(sel," + JSON.stringify(splitMode) + ");}" +
+        "catch(e){new Alert('OxHorse', String(e && e.message ? e.message : e)).show();}" +
         "})()"
-    ].join(""));
+    );
 }
 
 function invokeRenderIR(ir) {
@@ -242,6 +245,44 @@ function htmlFileURL() {
     return $.NSURL.fileURLWithPath(sibling);
 }
 
+function pluginManifestPath() {
+    const appletPath = jsString($.NSBundle.mainBundle.bundlePath);
+    const resourcesDir = appletPath.replace(/\/OpenFloatingPalette\.app\/?$/, "");
+    const pluginDir = resourcesDir.replace(/\/Resources\/?$/, "");
+    return pluginDir + "/manifest.json";
+}
+
+function pluginVersionLabel() {
+    try {
+        const raw = readTextFile(pluginManifestPath());
+        const json = JSON.parse(raw);
+        if (json && json.version) {
+            const v = String(json.version).trim();
+            if (v) {
+                return v.charAt(0) === "v" || v.charAt(0) === "V" ? v : "v" + v;
+            }
+        }
+    } catch (e) {
+        // Ignore.
+    }
+    return "v0.1.2";
+}
+
+function injectPluginVersion(webView, version) {
+    const js =
+        "(function(){var v=" + JSON.stringify(version) + ";" +
+        "var el=document.getElementById('pluginVersion');" +
+        "if(el){el.textContent=v;}" +
+        "})()";
+    $.NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.35, false, function (timer) {
+        try {
+            webView.evaluateJavaScriptCompletionHandler(js, null);
+        } catch (e) {
+            // Ignore: HTML already shows a fallback version.
+        }
+    });
+}
+
 function numberValue(value, fallback) {
     const n = Number(value);
     return isFinite(n) ? n : fallback;
@@ -323,6 +364,7 @@ function createWindow() {
     const request = $.NSURLRequest.requestWithURL(fileURL);
     webView.loadRequest(request);
     window.contentView.addSubview(webView);
+    injectPluginVersion(webView, pluginVersionLabel());
 
     const keep = {
         window: window,

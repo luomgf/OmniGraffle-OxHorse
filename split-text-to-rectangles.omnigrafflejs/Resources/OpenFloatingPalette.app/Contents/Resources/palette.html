@@ -83,7 +83,7 @@
       grid-area: nav;
       background: var(--nav);
       border-right: 1px solid var(--line);
-      padding: 10px 8px;
+      padding: 10px 8px 8px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -102,6 +102,14 @@
       background: var(--nav-active);
       color: var(--accent);
       font-weight: 600;
+    }
+    .version {
+      margin-top: auto;
+      padding: 10px 12px 4px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      user-select: none;
     }
     .content {
       grid-area: content;
@@ -239,6 +247,7 @@
     <nav class="nav">
       <button class="nav-item active" data-page="tools" id="navTools">快捷工具</button>
       <button class="nav-item" data-page="ai" id="navAi">AI</button>
+      <div class="version" id="pluginVersion">v0.1.2</div>
     </nav>
     <main class="content">
       <section class="page active" id="page-tools">

@@ -15,7 +15,7 @@ OmniGraffle 插件：按换行切分文本框，并把 Markdown / Mermaid 画到
 指定版本：
 
 ```bash
-OXH_VERSION=v0.1.1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/luomgf/OmniGraffle-OxHorse/main/install.sh)"
+OXH_VERSION=v0.1.2 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/luomgf/OmniGraffle-OxHorse/main/install.sh)"
 ```
 
 安装后立刻打开浮动面板：

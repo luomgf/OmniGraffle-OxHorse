@@ -21,6 +21,9 @@
   "libraries": [
     {
       "identifier": "SplitTextLib"
+    },
+    {
+      "identifier": "DrawLib"
     }
   ]
 }

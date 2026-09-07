@@ -33,9 +33,40 @@ function shellQuote(value) {
     return "'" + String(value).replace(/'/g, "'\\''") + "'";
 }
 
+function writeTextFile(path, text) {
+    const str = $.NSString.stringWithString(String(text));
+    str.writeToFileAtomicallyEncodingError(path, true, $.NSUTF8StringEncoding, null);
+}
+
+function readTextFile(path) {
+    const str = $.NSString.stringWithContentsOfFileEncodingError(path, $.NSUTF8StringEncoding, null);
+    return jsString(str);
+}
+
+function decodeBase64Utf8(b64) {
+    const data = $.NSData.alloc.initWithBase64EncodedStringOptions(b64, 0);
+    const str = $.NSString.alloc.initWithDataEncoding(data, $.NSUTF8StringEncoding);
+    return jsString(str);
+}
+
+function invokeOmni(js) {
+    const omniPath = "/tmp/oxhorse-omni.js";
+    const runPath = "/tmp/oxhorse-run.jxa";
+    writeTextFile(omniPath, js);
+    const runner = [
+        "ObjC.import('Foundation');",
+        "var path = '/tmp/oxhorse-omni.js';",
+        "var ns = $.NSString.stringWithContentsOfFileEncodingError(path, $.NSUTF8StringEncoding, null);",
+        "var code = (ns && ns.js) ? ns.js : String(ns);",
+        "Application('OmniGraffle').evaluateJavascript(code);"
+    ].join("\n");
+    writeTextFile(runPath, runner);
+    $.system("/usr/bin/osascript -l JavaScript " + shellQuote(runPath) + " >/dev/null 2>&1 &");
+}
+
 function invokeSplit(mode) {
     const actionName = mode === "original" ? "splitAsOriginal" : "splitAsRectangle";
-    const omniJS = [
+    invokeOmni([
         "(function(){",
         "var plugin=PlugIn.find('com.lmg.omnigraffle.split-text-to-rectangles');",
         "if(!plugin){new Alert('OxHorse','插件未安装').show();return;}",
@@ -43,9 +74,148 @@ function invokeSplit(mode) {
         "if(!act){new Alert('OxHorse','请安装插件包 split-text-to-rectangles.omnigrafflejs。').show();return;}",
         "act.perform();",
         "})()"
-    ].join("");
-    const jxa = "Application('OmniGraffle').evaluateJavascript(" + JSON.stringify(omniJS) + ")";
-    $.system("/usr/bin/osascript -l JavaScript -e " + shellQuote(jxa) + " >/dev/null 2>&1 &");
+    ].join(""));
+}
+
+function invokeRenderIR(ir) {
+    const raw = typeof ir === "string" ? ir : JSON.stringify(ir);
+    invokeOmni(
+        "(function(){var p=PlugIn.find('com.lmg.omnigraffle.split-text-to-rectangles');" +
+        "if(!p){new Alert('OxHorse','插件未安装').show();return 'missing';}" +
+        "var lib=p.library('DrawLib');" +
+        "if(!lib){new Alert('OxHorse','找不到 DrawLib').show();return 'nolib';}" +
+        "try{return String(lib.renderJSON(" + JSON.stringify(raw) + "));}" +
+        "catch(e){new Alert('OxHorse', String(e && e.message ? e.message : e)).show();return 'err';}" +
+        "})()"
+    );
+}
+
+function chatCompletions(provider, markdown) {
+    const base = String(provider.baseUrl || "https://api.openai.com/v1").replace(/\/+$/, "");
+    const url = base + "/chat/completions";
+    const body = {
+        model: provider.model || "gpt-4o-mini",
+        temperature: 0.2,
+        messages: [
+            {
+                role: "system",
+                content: "You convert the user's Markdown into an OmniGraffle drawing IR. Reply with JSON only, no markdown fences. Schema: {\"layout\":\"TB\"|\"LR\",\"nodes\":[{\"id\":\"string\",\"text\":\"string\",\"shape\":\"rect|round|circle|diamond\"}],\"edges\":[{\"from\":\"id\",\"to\":\"id\",\"label\":\"optional\"}]}. Keep node ids simple. Use Chinese text from the user when present."
+            },
+            {
+                role: "user",
+                content: String(markdown || "")
+            }
+        ]
+    };
+    const reqPath = "/tmp/oxhorse-llm-req.json";
+    const resPath = "/tmp/oxhorse-llm-res.json";
+    writeTextFile(reqPath, JSON.stringify(body));
+    const cmd = [
+        "/usr/bin/curl -sS --max-time 60 -X POST",
+        shellQuote(url),
+        "-H", shellQuote("Content-Type: application/json"),
+        "-H", shellQuote("Authorization: Bearer " + String(provider.apiKey || "")),
+        "--data-binary", "@" + reqPath,
+        "-o", shellQuote(resPath)
+    ].join(" ");
+    const code = $.system(cmd);
+    if (code !== 0) {
+        throw new Error("调用模型失败（curl " + code + "）");
+    }
+    const raw = readTextFile(resPath);
+    let parsed = {};
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        throw new Error("模型返回不是 JSON。");
+    }
+    if (parsed.error && parsed.error.message) {
+        throw new Error(String(parsed.error.message));
+    }
+    const content = parsed.choices && parsed.choices[0] && parsed.choices[0].message
+        ? parsed.choices[0].message.content
+        : "";
+    if (!content) {
+        throw new Error("模型没有返回内容。");
+    }
+    return content;
+}
+
+function homeDirectory() {
+    try {
+        const env = $.NSProcessInfo.processInfo.environment;
+        const home = jsString(env.objectForKey("HOME"));
+        if (home) {
+            return home;
+        }
+    } catch (e) {
+        // Ignore.
+    }
+    try {
+        return "/Users/" + jsString($.NSUserName());
+    } catch (e2) {
+        return "";
+    }
+}
+
+function chooseExportPath() {
+    const scriptPath = "/tmp/oxhorse-choose-export.applescript";
+    const resultPath = "/tmp/oxhorse-export-path.txt";
+    try {
+        $.NSFileManager.defaultManager.removeItemAtPathError(resultPath, null);
+    } catch (e) {
+        // Ignore.
+    }
+    const script = [
+        "try",
+        "set theFile to choose file name with prompt \"导出 Markdown\" default name \"oxhorse.md\" default location (path to downloads folder)",
+        "do shell script \"printf %s \" & quoted form of POSIX path of theFile & \" > " + resultPath + "\"",
+        "on error",
+        "do shell script \"rm -f " + resultPath + "\"",
+        "end try"
+    ].join("\n");
+    writeTextFile(scriptPath, script);
+    $.system("/usr/bin/osascript " + shellQuote(scriptPath));
+    try {
+        const chosen = readTextFile(resultPath).trim();
+        return chosen || "";
+    } catch (e2) {
+        return "";
+    }
+}
+
+function exportMarkdown(text) {
+    const body = text == null ? "" : String(text);
+    $.NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.08, false, function (timer) {
+        try {
+            const path = chooseExportPath();
+            if (!path) {
+                return;
+            }
+            writeTextFile(path, body);
+            $.system("/usr/bin/open -R " + shellQuote(path));
+        } catch (e) {
+            const fallback = homeDirectory() + "/Downloads/oxhorse.md";
+            writeTextFile(fallback, body);
+            $.system("/usr/bin/open -R " + shellQuote(fallback));
+        }
+    });
+}
+
+function handlePayload(kind, jsonText) {
+    const data = JSON.parse(jsonText);
+    if (kind === "ir") {
+        invokeRenderIR(data.ir || data);
+        return;
+    }
+    if (kind === "llm") {
+        const content = chatCompletions(data.provider || {}, data.markdown || "");
+        invokeRenderIR(content);
+        return;
+    }
+    if (kind === "export") {
+        exportMarkdown(data.markdown || "");
+    }
 }
 
 function otherRunningInstance() {
@@ -127,7 +297,7 @@ function createWindow() {
         // Ignore.
     }
 
-    const rect = $.NSMakeRect(240, 180, 380, 560);
+    const rect = $.NSMakeRect(240, 180, 760, 600);
     const style = (
         $.NSWindowStyleMaskTitled |
         $.NSWindowStyleMaskClosable |
@@ -144,25 +314,21 @@ function createWindow() {
     window.level = $.NSFloatingWindowLevel;
     window.hidesOnDeactivate = false;
     window.releasedWhenClosed = false;
-    window.minSize = $.NSMakeSize(320, 420);
+    window.minSize = $.NSMakeSize(680, 500);
 
     const webView = $.WKWebView.alloc.initWithFrame(window.contentView.bounds);
     webView.autoresizingMask = $.NSViewWidthSizable | $.NSViewHeightSizable;
 
     const fileURL = htmlFileURL();
-    try {
-        const dirURL = fileURL.URLByDeletingLastPathComponent;
-        webView.loadFileURLAllowingReadAccessToURL(fileURL, dirURL);
-    } catch (e) {
-        const request = $.NSURLRequest.requestWithURL(fileURL);
-        webView.loadRequest(request);
-    }
+    const request = $.NSURLRequest.requestWithURL(fileURL);
+    webView.loadRequest(request);
     window.contentView.addSubview(webView);
 
     const keep = {
         window: window,
         webView: webView,
-        lastTs: "",
+        lastTitle: "",
+        buffers: {},
         observer: null,
         timer: null
     };
@@ -176,18 +342,50 @@ function createWindow() {
         }
     );
 
-    keep.timer = $.NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.3, true, function (timer) {
+    keep.timer = $.NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.2, true, function (timer) {
         try {
             const title = jsString(keep.webView.title);
-            const match = title.match(/^ogsplit:(rectangle|original):(\d+)$/);
-            if (!match) {
+            if (!title || title === keep.lastTitle || title === "OxHorse") {
                 return;
             }
-            if (match[2] === keep.lastTs) {
+            keep.lastTitle = title;
+
+            const split = title.match(/^ogsplit:(rectangle|original):(\d+)$/);
+            if (split) {
+                invokeSplit(split[1]);
                 return;
             }
-            keep.lastTs = match[2];
-            invokeSplit(match[1]);
+
+            const begin = title.match(/^ogbegin:(\d+):(\d+)$/);
+            if (begin) {
+                keep.buffers[begin[1]] = { total: Number(begin[2]), parts: [] };
+                return;
+            }
+
+            const part = title.match(/^ogpart:(\d+):(\d+):(.*)$/);
+            if (part) {
+                const buf = keep.buffers[part[1]] || { total: 0, parts: [] };
+                buf.parts[Number(part[2])] = part[3];
+                keep.buffers[part[1]] = buf;
+                return;
+            }
+
+            const end = title.match(/^ogend:(\d+):(ir|llm|export)$/);
+            if (end) {
+                const buf = keep.buffers[end[1]];
+                delete keep.buffers[end[1]];
+                if (!buf) {
+                    return;
+                }
+                const joined = buf.parts.join("");
+                const jsonText = decodeBase64Utf8(joined);
+                try {
+                    handlePayload(end[2], jsonText);
+                } catch (err) {
+                    const message = String(err && err.message ? err.message : err);
+                    invokeOmni("(function(){new Alert('OxHorse'," + JSON.stringify(message) + ").show();})()");
+                }
+            }
         } catch (e) {
             // Never throw from a timer callback.
         }
@@ -195,7 +393,7 @@ function createWindow() {
 
     $.SplitPaletteKeepAlive = keep;
 
-    placeWindow(window, 380, 560);
+    placeWindow(window, 760, 600);
     showWindow(window, nsApp);
     try {
         if (typeof nsApp.run === "function") {

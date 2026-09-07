@@ -7,7 +7,7 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f4f5f7;
+      --bg: #eef0f3;
       --panel: #ffffff;
       --text: #1f2328;
       --muted: #656d76;
@@ -17,7 +17,9 @@
       --original: #1a7f37;
       --original-press: #116329;
       --danger: #b42318;
-      --shadow: 0 10px 28px rgba(16, 24, 40, 0.12);
+      --nav: #f7f8fa;
+      --nav-active: #e7f0ff;
+      --shadow: 0 8px 20px rgba(16, 24, 40, 0.08);
     }
     * { box-sizing: border-box; }
     html, body {
@@ -26,138 +28,789 @@
       font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
       color: var(--text);
       background: var(--bg);
-      user-select: none;
     }
-    .shell {
-      min-height: 100%;
-      display: flex;
-      flex-direction: column;
+    button, select, textarea, input { font: inherit; }
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 168px 1fr;
+      grid-template-rows: 72px 1fr;
+      grid-template-areas:
+        "logo toolbar"
+        "nav content";
     }
-    .body {
-      flex: 1;
-      padding: 18px 16px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .brand {
+    .logo {
+      grid-area: logo;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      padding: 0 12px;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
     }
-    .brand img {
-      width: 56px;
-      height: 56px;
-      border-radius: 14px;
+    .logo img {
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
       background: #fff;
-      box-shadow: var(--shadow);
-      flex: 0 0 auto;
     }
-    h1 {
+    .logo h1 {
       margin: 0;
-      font-size: 22px;
+      font-size: 18px;
       letter-spacing: 0.02em;
     }
-    .hint {
-      color: var(--muted);
-      margin: 0;
+    .toolbar {
+      grid-area: toolbar;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 0 14px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
     }
-    .actions {
+    .tool {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .tool:hover { background: var(--nav); }
+    .nav {
+      grid-area: nav;
+      background: var(--nav);
+      border-right: 1px solid var(--line);
+      padding: 10px 8px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      margin-top: 4px;
+      gap: 6px;
+    }
+    .nav-item {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .nav-item.active {
+      background: var(--nav-active);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .content {
+      grid-area: content;
+      padding: 16px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .page { display: none; flex: 1; flex-direction: column; gap: 12px; min-height: 0; }
+    .page.active { display: flex; }
+    .hint { margin: 0; color: var(--muted); }
+    .split-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .mode {
       appearance: none;
       border: 0;
       border-radius: 12px;
-      padding: 14px 14px 13px;
+      padding: 18px 16px;
+      min-width: 180px;
+      flex: 1;
       text-align: left;
       color: #fff;
       cursor: pointer;
       box-shadow: var(--shadow);
     }
-    .mode:active { transform: translateY(1px); }
     .mode.rectangle { background: var(--accent); }
     .mode.rectangle:hover { background: var(--accent-press); }
     .mode.original { background: var(--original); }
     .mode.original:hover { background: var(--original-press); }
-    .mode strong {
-      display: block;
-      font-size: 16px;
-      margin-bottom: 4px;
+    .mode strong { display: block; font-size: 16px; margin-bottom: 4px; }
+    .mode span { display: block; font-size: 12px; opacity: 0.92; }
+    .ai-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
     }
-    .mode span {
-      display: block;
-      opacity: 0.92;
+    .ai-bar select { flex: 1; min-width: 0; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); }
+    .ai-bar button {
+      appearance: none;
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .ai-bar button:disabled { opacity: 0.6; cursor: default; }
+    #mdInput {
+      flex: 1;
+      min-height: 180px;
+      resize: none;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 12px;
+      line-height: 1.5;
     }
     .status {
-      margin-top: auto;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 10px 12px;
       color: var(--muted);
-      min-height: 58px;
+      min-height: 48px;
     }
     .status.ok { color: var(--original); }
     .status.err { color: var(--danger); }
-    .foot {
-      color: var(--muted);
-      font-size: 11px;
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 24, 40, 0.28);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
     }
+    .modal.open { display: flex; }
+    .sheet {
+      width: min(560px, 100%);
+      max-height: 90%;
+      overflow: auto;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .sheet h2 { margin: 0 0 8px; font-size: 16px; }
+    .provider {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      margin: 8px 0;
+      display: grid;
+      gap: 6px;
+    }
+    .provider label { color: var(--muted); font-size: 12px; }
+    .provider input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+    .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .ghost {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .danger { color: var(--danger); }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <div class="body">
-      <div class="brand">
-        <img src="CowHorse.png" alt="OxHorse">
-        <h1>OxHorse</h1>
+  <div class="app">
+    <header class="logo">
+      <img src="CowHorse.png" alt="OxHorse">
+      <h1>OxHorse</h1>
+    </header>
+    <div class="toolbar">
+      <button class="tool" id="importBtn">导入</button>
+      <button class="tool" id="exportBtn">导出</button>
+      <button class="tool" id="settingsBtn">设置</button>
+      <input class="hidden" id="fileInput" type="file" accept=".md,.markdown,.txt,.mmd">
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-page="tools" id="navTools">快捷工具</button>
+      <button class="nav-item" data-page="ai" id="navAi">AI</button>
+    </nav>
+    <main class="content">
+      <section class="page active" id="page-tools">
+        <p class="hint">先在 OmniGraffle 中选中包含至少两行文字的图形，再选择切割方式。</p>
+        <div class="split-actions">
+          <button class="mode rectangle" id="rectBtn">
+            <strong>矩形切割</strong>
+            <span>每行生成独立矩形，文字居中</span>
+          </button>
+          <button class="mode original" id="origBtn">
+            <strong>原图切割</strong>
+            <span>保持原图形样式，只按换行拆开</span>
+          </button>
+        </div>
+        <div class="status" id="toolStatus">就绪。</div>
+      </section>
+      <section class="page" id="page-ai">
+        <p class="hint">用 Markdown 指挥绘图。可直接贴 Mermaid 代码块，或写流程说明后点「画到画布」。默认使用设置里的第一个模型。</p>
+        <div class="ai-bar">
+          <select id="modelSelect" aria-label="模型"></select>
+          <button id="drawBtn">画到画布</button>
+        </div>
+        <textarea id="mdInput" spellcheck="false" placeholder="```mermaid&#10;flowchart TD&#10;  A[开始] --> B{判断}&#10;  B -->|是| C[完成]&#10;```&#10;&#10;或直接写：画一个从登录到支付的流程。"></textarea>
+        <div class="status" id="aiStatus">当前对话。关闭窗口前内容会留在这里。</div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="settingsModal">
+    <div class="sheet">
+      <div class="row">
+        <h2>大模型设置</h2>
+        <button class="ghost" id="closeSettings">关闭</button>
       </div>
-      <p class="hint">在 OmniGraffle 中选中多行矩形或文本，再点下面的分裂方式。本窗口会一直留着，不会因为点按钮而关闭。</p>
-      <div class="actions">
-        <button class="mode rectangle" id="rectBtn">
-          <strong>矩形分裂</strong>
-          <span>每行生成独立矩形，文字居中</span>
-        </button>
-        <button class="mode original" id="origBtn">
-          <strong>原图分裂</strong>
-          <span>保持原图形样式，只按换行拆开</span>
-        </button>
+      <p class="hint">OpenAI 兼容接口。可添加多个，列表中的第一个为默认，AI 页打开时自动选中它。</p>
+      <div id="providerList"></div>
+      <div class="row">
+        <button class="ghost" id="addProvider">添加模型</button>
+        <button class="tool" id="saveSettings">保存</button>
       </div>
-      <div class="status" id="status">就绪。请先选中包含至少两行文字的图形。</div>
-      <p class="foot">关闭、最小化、最大化请用窗口左上角按钮。只有手动关闭才会退出。</p>
     </div>
   </div>
+
   <script>
     (function () {
-      var statusEl = document.getElementById("status");
+      var STORAGE_KEY = "oxhorse.providers.v1";
+      var mdInput = document.getElementById("mdInput");
+      var modelSelect = document.getElementById("modelSelect");
+      var toolStatus = document.getElementById("toolStatus");
+      var aiStatus = document.getElementById("aiStatus");
+      var sending = false;
 
-      function setStatus(text, kind) {
-        statusEl.textContent = text;
-        statusEl.className = "status" + (kind ? " " + kind : "");
+      function defaultProviders() {
+        return [{
+          name: "默认",
+          baseUrl: "https://api.openai.com/v1",
+          apiKey: "",
+          model: "gpt-4o-mini"
+        }];
       }
 
-      function runSplit(mode) {
-        var label = mode === "original" ? "原图分裂" : "矩形分裂";
-        setStatus("正在执行「" + label + "」…");
-        document.title = "ogsplit:" + mode + ":" + Date.now();
-        setTimeout(function () {
-          setStatus("已调用插件动作「" + label + "」。窗口保持打开，可继续选中其他图形再分裂。", "ok");
-        }, 200);
+      function loadProviders() {
+        try {
+          var raw = localStorage.getItem(STORAGE_KEY);
+          var list = raw ? JSON.parse(raw) : null;
+          if (!list || !list.length) {
+            return defaultProviders();
+          }
+          return list;
+        } catch (e) {
+          return defaultProviders();
+        }
       }
+
+      function saveProviders(list) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      }
+
+      function setStatus(el, text, kind) {
+        el.textContent = text;
+        el.className = "status" + (kind ? " " + kind : "");
+      }
+
+      function showPage(name) {
+        document.querySelectorAll(".nav-item").forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-page") === name);
+        });
+        document.querySelectorAll(".page").forEach(function (page) {
+          page.classList.toggle("active", page.id === "page-" + name);
+        });
+      }
+
+      function fillModelSelect(keepIndex) {
+        var list = loadProviders();
+        var previous = typeof keepIndex === "number" ? keepIndex : modelSelect.selectedIndex;
+        modelSelect.innerHTML = "";
+        if (!list.length) {
+          var empty = document.createElement("option");
+          empty.textContent = "请先在设置中添加模型";
+          empty.value = "";
+          modelSelect.appendChild(empty);
+          return;
+        }
+        list.forEach(function (item, index) {
+          var opt = document.createElement("option");
+          opt.value = String(index);
+          opt.textContent = (item.name || "未命名") + " · " + (item.model || "");
+          modelSelect.appendChild(opt);
+        });
+        var next = 0;
+        if (previous >= 0 && previous < list.length) {
+          next = previous;
+        }
+        modelSelect.selectedIndex = next;
+      }
+
+      function providerFields(item, index) {
+        var wrap = document.createElement("div");
+        wrap.className = "provider";
+        wrap.innerHTML =
+          "<div class='row'><strong>模型 " + (index + 1) + (index === 0 ? "（默认）" : "") + "</strong>" +
+          "<button class='ghost danger' data-del='" + index + "' type='button'>删除</button></div>" +
+          "<label>名称</label><input data-k='name' value=''>" +
+          "<label>Base URL</label><input data-k='baseUrl' value=''>" +
+          "<label>API Key</label><input data-k='apiKey' type='password' value=''>" +
+          "<label>Model</label><input data-k='model' value=''>";
+        wrap.querySelector("[data-k='name']").value = item.name || "";
+        wrap.querySelector("[data-k='baseUrl']").value = item.baseUrl || "";
+        wrap.querySelector("[data-k='apiKey']").value = item.apiKey || "";
+        wrap.querySelector("[data-k='model']").value = item.model || "";
+        return wrap;
+      }
+
+      function renderSettings() {
+        var list = loadProviders();
+        var host = document.getElementById("providerList");
+        host.innerHTML = "";
+        list.forEach(function (item, index) {
+          host.appendChild(providerFields(item, index));
+        });
+      }
+
+      function collectSettings() {
+        var blocks = document.querySelectorAll("#providerList .provider");
+        var list = [];
+        blocks.forEach(function (block) {
+          list.push({
+            name: block.querySelector("[data-k='name']").value.trim() || "未命名",
+            baseUrl: block.querySelector("[data-k='baseUrl']").value.trim(),
+            apiKey: block.querySelector("[data-k='apiKey']").value.trim(),
+            model: block.querySelector("[data-k='model']").value.trim()
+          });
+        });
+        return list;
+      }
+
+      function emitTitle(value) {
+        document.title = value;
+      }
+
+      function utf8ToB64(text) {
+        return btoa(unescape(encodeURIComponent(text)));
+      }
+
+      function sendBridge(kind, payload, done) {
+        var b64 = utf8ToB64(JSON.stringify(payload));
+        var size = 700;
+        var parts = [];
+        for (var i = 0; i < b64.length; i += size) {
+          parts.push(b64.slice(i, i + size));
+        }
+        var ts = String(Date.now());
+        var index = 0;
+        emitTitle("ogbegin:" + ts + ":" + parts.length);
+        function next() {
+          if (index < parts.length) {
+            emitTitle("ogpart:" + ts + ":" + index + ":" + parts[index]);
+            index += 1;
+            setTimeout(next, 380);
+            return;
+          }
+          emitTitle("ogend:" + ts + ":" + kind);
+          if (done) {
+            setTimeout(done, 200);
+          }
+        }
+        setTimeout(next, 380);
+      }
+
+      var MERMAID_KEYWORDS = {
+        flowchart: true, graph: true, subgraph: true, end: true,
+        direction: true, td: true, tb: true, bt: true, lr: true, rl: true,
+        classdef: true, class: true, click: true, style: true, linkstyle: true
+      };
+
+      function isKeyword(id) {
+        return !!MERMAID_KEYWORDS[String(id || "").toLowerCase()];
+      }
+
+      function extractMermaid(markdown) {
+        var text = String(markdown || "");
+        var fence = text.match(/```mermaid\s*([\s\S]*?)```/i);
+        if (fence && fence[1]) {
+          return fence[1].trim();
+        }
+        if (/^\s*(flowchart|graph)\s+/im.test(text)) {
+          return text.trim();
+        }
+        return "";
+      }
+
+      function stripQuotes(value) {
+        var text = String(value || "").trim();
+        var pairs = [
+          ['"', '"'],
+          ["'", "'"],
+          ["\u201C", "\u201D"],
+          ["\u2018", "\u2019"],
+          ["\u300C", "\u300D"],
+          ["\u300E", "\u300F"],
+          ["\uFF02", "\uFF02"],
+          ["\uFF07", "\uFF07"]
+        ];
+        var changed = true;
+        while (changed && text.length >= 2) {
+          changed = false;
+          for (var i = 0; i < pairs.length; i++) {
+            var open = pairs[i][0];
+            var close = pairs[i][1];
+            if (text.charAt(0) === open && text.charAt(text.length - 1) === close) {
+              text = text.slice(1, -1).trim();
+              changed = true;
+              break;
+            }
+          }
+        }
+        return text;
+      }
+
+      function decodeLabel(value) {
+        var text = stripQuotes(value)
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/br>/gi, "\n");
+        var lines = text.split("\n");
+        for (var i = 0; i < lines.length; i++) {
+          lines[i] = stripQuotes(lines[i]);
+        }
+        return lines.join("\n");
+      }
+
+      function parseNodeToken(token) {
+        var raw = String(token || "").trim();
+        if (!raw) {
+          return null;
+        }
+        var match = raw.match(/^([A-Za-z][A-Za-z0-9_]*)(.*)$/);
+        if (!match) {
+          return null;
+        }
+        var id = match[1];
+        if (isKeyword(id)) {
+          return null;
+        }
+        var rest = (match[2] || "").trim();
+        var node = { id: id, text: id, shape: "rect" };
+        var body;
+        if ((body = rest.match(/^\[\[([^\]]+)\]\]$/))) {
+          node.text = decodeLabel(body[1]);
+          node.shape = "rect";
+        } else if ((body = rest.match(/^\(\[([^\]]+)\]\)$/))) {
+          node.text = decodeLabel(body[1]);
+          node.shape = "stadium";
+        } else if ((body = rest.match(/^\(\(([^)]+)\)\)$/))) {
+          node.text = decodeLabel(body[1]);
+          node.shape = "circle";
+        } else if ((body = rest.match(/^\(([^)]+)\)$/))) {
+          node.text = decodeLabel(body[1]);
+          node.shape = "round";
+        } else if ((body = rest.match(/^\{([^}]+)\}$/))) {
+          node.text = decodeLabel(body[1]);
+          node.shape = "diamond";
+        } else if ((body = rest.match(/^\[([^\]]+)\]$/))) {
+          node.text = decodeLabel(body[1]);
+          node.shape = "rect";
+        } else if ((body = rest.match(/^"([^"]+)"$/))) {
+          node.text = decodeLabel(body[1]);
+        }
+        return node;
+      }
+
+      function splitArrowLine(line) {
+        var chunks = String(line).split("-->");
+        var tokens = [];
+        var labels = [];
+        for (var i = 0; i < chunks.length; i++) {
+          var chunk = chunks[i].trim();
+          var labeled = chunk.match(/^\|([^|]*)\|\s*(.*)$/);
+          if (labeled && i > 0) {
+            labels.push(labeled[1]);
+            tokens.push(labeled[2].trim());
+          } else {
+            if (i > 0) {
+              labels.push("");
+            }
+            tokens.push(chunk);
+          }
+        }
+        return { tokens: tokens, labels: labels };
+      }
+
+      function parseMermaid(src) {
+        var lines = String(src).replace(/\r/g, "").split("\n");
+        var nodes = {};
+        var groups = {};
+        var edges = [];
+        var layout = "TB";
+        var stack = [{ id: "", direction: "TB" }];
+
+        function current() {
+          return stack[stack.length - 1];
+        }
+
+        function addNode(token, parentId) {
+          var node = parseNodeToken(token);
+          if (!node) {
+            return null;
+          }
+          if (groups[node.id]) {
+            return node.id;
+          }
+          if (!nodes[node.id]) {
+            nodes[node.id] = {
+              id: node.id,
+              text: node.text,
+              shape: node.shape,
+              parent: parentId || ""
+            };
+          } else {
+            if (node.text && node.text !== node.id) {
+              nodes[node.id].text = node.text;
+              nodes[node.id].shape = node.shape;
+            }
+            if (!nodes[node.id].parent && parentId) {
+              nodes[node.id].parent = parentId;
+            }
+          }
+          return node.id;
+        }
+
+        function resolveId(token, parentId) {
+          var t = String(token || "").trim();
+          var idMatch = t.match(/^([A-Za-z][A-Za-z0-9_]*)/);
+          var id = idMatch ? idMatch[1] : "";
+          if (!id || isKeyword(id)) {
+            return null;
+          }
+          if (groups[id]) {
+            return id;
+          }
+          return addNode(t, parentId);
+        }
+
+        for (var i = 0; i < lines.length; i++) {
+          var t = lines[i].replace(/%%.*$/, "").trim();
+          if (!t) {
+            continue;
+          }
+          var header = t.match(/^(?:flowchart|graph)\s+(TD|TB|LR|RL|BT)\b/i);
+          if (header) {
+            layout = header[1].toUpperCase() === "TD" ? "TB" : header[1].toUpperCase();
+            stack[0].direction = layout;
+            continue;
+          }
+          var dirLine = t.match(/^direction\s+(TD|TB|LR|RL|BT)\b/i);
+          if (dirLine) {
+            current().direction = dirLine[1].toUpperCase() === "TD" ? "TB" : dirLine[1].toUpperCase();
+            continue;
+          }
+          var sub = t.match(/^subgraph\s+([A-Za-z][A-Za-z0-9_]*)(?:\s*\[([^\]]+)\])?\s*$/);
+          if (!sub) {
+            sub = t.match(/^subgraph\s+"([^"]+)"\s*$/);
+            if (sub) {
+              sub = [t, sub[1].replace(/\s+/g, "_"), sub[1]];
+            }
+          }
+          if (sub) {
+            var gid = sub[1];
+            var title = decodeLabel(sub[2] || gid);
+            var parentId = current().id || "";
+            groups[gid] = {
+              id: gid,
+              title: title,
+              direction: "TB",
+              parent: parentId
+            };
+            stack.push(groups[gid]);
+            continue;
+          }
+          if (/^end\b/i.test(t)) {
+            if (stack.length > 1) {
+              stack.pop();
+            }
+            continue;
+          }
+          if (t.indexOf("-->") >= 0) {
+            var flow = splitArrowLine(t);
+            var parent = current().id || "";
+            for (var n = 0; n < flow.tokens.length; n++) {
+              resolveId(flow.tokens[n], parent);
+            }
+            for (var e = 0; e < flow.labels.length; e++) {
+              var fromId = resolveId(flow.tokens[e], parent);
+              var toId = resolveId(flow.tokens[e + 1], parent);
+              if (fromId && toId) {
+                var edge = { from: fromId, to: toId };
+                if (flow.labels[e]) {
+                  edge.label = decodeLabel(flow.labels[e]);
+                }
+                edges.push(edge);
+              }
+            }
+            continue;
+          }
+          addNode(t, current().id || "");
+        }
+
+        var nodeList = [];
+        Object.keys(nodes).forEach(function (key) {
+          nodeList.push(nodes[key]);
+        });
+        var groupList = [];
+        Object.keys(groups).forEach(function (key) {
+          groupList.push(groups[key]);
+        });
+        return { layout: layout, nodes: nodeList, edges: edges, groups: groupList };
+      }
+
+      document.querySelectorAll(".nav-item").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          showPage(btn.getAttribute("data-page"));
+        });
+      });
 
       document.getElementById("rectBtn").addEventListener("click", function (event) {
         event.preventDefault();
-        runSplit("rectangle");
+        setStatus(toolStatus, "正在执行「矩形切割」…");
+        emitTitle("ogsplit:rectangle:" + Date.now());
+        setTimeout(function () {
+          setStatus(toolStatus, "已调用矩形切割。窗口保持打开。", "ok");
+        }, 200);
       });
       document.getElementById("origBtn").addEventListener("click", function (event) {
         event.preventDefault();
-        runSplit("original");
+        setStatus(toolStatus, "正在执行「原图切割」…");
+        emitTitle("ogsplit:original:" + Date.now());
+        setTimeout(function () {
+          setStatus(toolStatus, "已调用原图切割。窗口保持打开。", "ok");
+        }, 200);
       });
+
+      document.getElementById("importBtn").addEventListener("click", function () {
+        showPage("ai");
+        document.getElementById("fileInput").click();
+      });
+      document.getElementById("fileInput").addEventListener("change", function (event) {
+        var file = event.target.files && event.target.files[0];
+        if (!file) {
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () {
+          mdInput.value = String(reader.result || "");
+          setStatus(aiStatus, "已导入 " + file.name + "。", "ok");
+        };
+        reader.readAsText(file);
+        event.target.value = "";
+      });
+      document.getElementById("exportBtn").addEventListener("click", function () {
+        showPage("ai");
+        var markdown = mdInput.value || "";
+        setStatus(aiStatus, "请选择保存位置…");
+        sendBridge("export", { markdown: markdown }, function () {
+          setStatus(aiStatus, "请在弹出的窗口里选择保存路径。", "ok");
+        });
+      });
+
+      document.getElementById("settingsBtn").addEventListener("click", function () {
+        renderSettings();
+        document.getElementById("settingsModal").classList.add("open");
+      });
+      document.getElementById("closeSettings").addEventListener("click", function () {
+        document.getElementById("settingsModal").classList.remove("open");
+      });
+      document.getElementById("addProvider").addEventListener("click", function () {
+        var list = collectSettings();
+        list.push({
+          name: "模型 " + (list.length + 1),
+          baseUrl: "https://api.openai.com/v1",
+          apiKey: "",
+          model: "gpt-4o-mini"
+        });
+        saveProviders(list);
+        renderSettings();
+      });
+      document.getElementById("providerList").addEventListener("click", function (event) {
+        var btn = event.target.closest("[data-del]");
+        if (!btn) {
+          return;
+        }
+        var list = collectSettings();
+        list.splice(Number(btn.getAttribute("data-del")), 1);
+        saveProviders(list);
+        renderSettings();
+      });
+      document.getElementById("saveSettings").addEventListener("click", function () {
+        var list = collectSettings();
+        if (!list.length) {
+          list = defaultProviders();
+        }
+        saveProviders(list);
+        fillModelSelect(0);
+        document.getElementById("settingsModal").classList.remove("open");
+        setStatus(aiStatus, "已保存。默认使用第一个模型。", "ok");
+      });
+
+      document.getElementById("drawBtn").addEventListener("click", function () {
+        if (sending) {
+          return;
+        }
+        var markdown = mdInput.value.trim();
+        if (!markdown) {
+          setStatus(aiStatus, "请先输入 Markdown 或 Mermaid。", "err");
+          return;
+        }
+        var mermaid = extractMermaid(markdown);
+        if (mermaid) {
+          var ir = parseMermaid(mermaid);
+          if (!ir.nodes.length) {
+            setStatus(aiStatus, "没有解析到 Mermaid 节点。", "err");
+            return;
+          }
+          sending = true;
+          setStatus(aiStatus, "正在把 Mermaid 画到 OmniGraffle…");
+          sendBridge("ir", { ir: ir }, function () {
+            sending = false;
+            setStatus(aiStatus, "已发送绘图指令。", "ok");
+          });
+          return;
+        }
+        var list = loadProviders();
+        var index = modelSelect.selectedIndex;
+        if (index < 0) {
+          index = 0;
+        }
+        var provider = list[index];
+        if (!provider) {
+          setStatus(aiStatus, "请先在设置中添加 OpenAI 兼容模型。", "err");
+          return;
+        }
+        if (!provider.apiKey) {
+          setStatus(aiStatus, "当前模型还没有填写 API Key。", "err");
+          return;
+        }
+        sending = true;
+        setStatus(aiStatus, "正在调用「" + (provider.name || provider.model) + "」…");
+        sendBridge("llm", { markdown: markdown, provider: provider }, function () {
+          sending = false;
+          setStatus(aiStatus, "已发送给模型，正在绘制。", "ok");
+        });
+      });
+
+      fillModelSelect(0);
     })();
   </script>
 </body>

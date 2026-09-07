@@ -39,6 +39,8 @@
 	<string>This script needs access to your camera to run.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>This script needs access to your contacts to run.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSHomeKitUsageDescription</key>
 	<string>This script needs access to your HomeKit Home to run.</string>
 	<key>NSMicrophoneUsageDescription</key>
